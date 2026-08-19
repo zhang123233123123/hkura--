@@ -65,7 +65,7 @@ export default function Home() {
       <header className="topbar">
         <a className="brand" href="#" aria-label="RuleLens 首页"><span className="mark">R</span><span>RuleLens <b>BIM</b></span></a>
         <div className="project"><span className="status-dot" /> {fileName}<span className="saved">本地分析 · 数据不上传</span></div>
-        <a className="github" href="https://github.com/IfcOpenShell/IfcOpenShell" target="_blank" rel="noreferrer">开源技术栈 <span>↗</span></a>
+        <span className="prototype-tag">AI + openBIM · LOCAL PROTOTYPE</span>
       </header>
 
       <section className="intro">
