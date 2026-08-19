@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BimViewer, type BimViewerHandle, type ViewMode } from "./components/BimViewer";
 import { ModelChat } from "./components/ModelChat";
 import type { Issue, ParsedModel } from "./model-types";
@@ -20,7 +20,7 @@ const sampleIssues: Issue[] = [
 export default function Home() {
   const inputRef = useRef<HTMLInputElement>(null);
   const viewerRef = useRef<BimViewerHandle>(null);
-  const [fileName, setFileName] = useState("演示模型 · HKU_Office_L2.ifc");
+  const [fileName, setFileName] = useState("OpenBIM Sample · openbim-small.ifc");
   const [modelFile, setModelFile] = useState<File | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("3d");
   const [modelStatus, setModelStatus] = useState("查看器正在准备…");
@@ -38,6 +38,22 @@ export default function Home() {
   const passedCount = parsedModel?.passedChecks ?? 39;
   const elementCount = parsedModel?.elementCount ?? 1284;
   const score = Math.max(0, 100 - effectiveIssues.reduce((total, issue) => total + issue.penalty, 0));
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadBundledModel() {
+      try {
+        const response = await fetch("/models/openbim-small.ifc");
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+        if (!cancelled) setModelFile(new File([blob], "openbim-small.ifc", { type: "application/x-step" }));
+      } catch {
+        if (!cancelled) setModelStatus("内置 IFC 加载失败，请手动上传模型");
+      }
+    }
+    void loadBundledModel();
+    return () => { cancelled = true; };
+  }, []);
 
   function selectIssue(issue: Issue) {
     setActive(issue);
@@ -87,7 +103,7 @@ export default function Home() {
         </div>
         <div className="upload-card">
           <div className="file-icon">IFC</div>
-          <div><strong>{fileName}</strong><span>{modelFile ? `${(modelFile.size / 1024 / 1024).toFixed(1)} MB · 本地文件` : "IFC4 · 内置演示数据"}</span></div>
+          <div><strong>{fileName}</strong><span>{modelFile ? `${(modelFile.size / 1024 / 1024).toFixed(1)} MB · 真实 IFC · 本地解析` : "正在读取内置 IFC…"}</span></div>
           <button className="replace" onClick={() => inputRef.current?.click()}>替换模型</button>
           <input ref={inputRef} hidden type="file" accept=".ifc" onChange={(e) => { const next = e.target.files?.[0]; if (next) { setFileName(next.name); setParsedModel(null); setChecked(false); setAnalysis(null); setModelFile(next); } }} />
         </div>
@@ -103,7 +119,7 @@ export default function Home() {
             <div className="rule-index">R2</div><div><strong>防火属性完整性</strong><p>Pset_DoorCommon.FireRating 必填</p></div><span className="toggle" />
           </div>
           <div className="standard-note"><span>i</span><p><strong>规则边界</strong><br />当前阈值用于原型演示，不代替正式法规审查。</p></div>
-          <button className="run" onClick={runCheck} disabled={checking}>{checking ? <><span className="spinner" /> 正在遍历构件…</> : "运行检查  →"}</button>
+          <button className="run" onClick={runCheck} disabled={checking || Boolean(modelFile && !parsedModel)}>{checking ? <><span className="spinner" /> 正在遍历构件…</> : modelFile && !parsedModel ? "正在解析 IFC…" : "运行检查  →"}</button>
         </aside>
 
         <div className="model-panel">

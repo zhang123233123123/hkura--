@@ -9,6 +9,10 @@
 - 两条确定性合规规则与可解释评分
 - DeepSeek 检查结果分析和多轮“问模型”对话
 - 无网络或模型 API 异常时的本地兜底
+- 内置 That Open 示例 IFC，打开页面即可自动加载完整流程
+
+内置样本位于 `public/models/openbim-small.ifc`，来源于 That Open Components 公开教程资源，仅用于本原型演示与回归测试。
+项目同时内置与当前 `web-ifc` 依赖版本一致的 WASM，模型解析不依赖外部 CDN。
 
 ## 处理链路
 

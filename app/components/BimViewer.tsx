@@ -202,11 +202,10 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer({
       if (!hostRef.current || runtimeRef.current) return;
       try {
         onStatus("正在初始化 openBIM 查看器…");
-        const [OBC, THREE, worker, schema] = await Promise.all([
+        const [OBC, THREE, worker] = await Promise.all([
           import("@thatopen/components"),
           import("three"),
           import("@thatopen/fragments/worker?url"),
-          import("web-ifc"),
         ]);
         if (cancelled || !hostRef.current) return;
         const components = new OBC.Components();
@@ -229,7 +228,13 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer({
         world.camera.controls!.addEventListener("update", () => fragments.core.update());
 
         const loader = components.get(OBC.IfcLoader);
-        await loader.setup({ autoSetWasm: true });
+        await loader.setup({ autoSetWasm: false, wasm: { path: "/wasm/", absolute: true } });
+        const schema = {
+          IFCDOOR: 395920057,
+          IFCBUILDINGSTOREY: 3124254112,
+          IFCRELDEFINESBYPROPERTIES: 4186316022,
+          IFCRELCONTAINEDINSPATIALSTRUCTURE: 3242617779,
+        };
         runtimeRef.current = { components, camera: world.camera, scene: world.scene.three, fragments, loader, schema } as unknown as ViewerRuntime;
         setReady(true);
         onStatus("查看器已就绪，请上传 IFC 模型");
