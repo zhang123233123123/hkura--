@@ -15,6 +15,12 @@ type Issue = {
   y: number;
 };
 
+type AIAnalysis = {
+  summary: string;
+  priority: string;
+  recommendations: Record<string, string>;
+};
+
 const sampleIssues: Issue[] = [
   { id: "D-104", rule: "DOOR_WIDTH", title: "疏散门净宽不足", element: "D-104  ·  IfcDoor", location: "L1 / 东侧走廊", actual: "780 mm", required: "≥ 900 mm", penalty: 12, x: 70, y: 41 },
   { id: "D-107", rule: "FIRE_RATING", title: "防火属性缺失", element: "D-107  ·  IfcDoor", location: "L1 / 前室", actual: "未填写", required: "FireRating ≥ 60 min", penalty: 8, x: 48, y: 67 },
@@ -28,14 +34,30 @@ export default function Home() {
   const [checking, setChecking] = useState(false);
   const [active, setActive] = useState<Issue | null>(null);
   const [filter, setFilter] = useState<"all" | "door" | "fire">("all");
+  const [analysis, setAnalysis] = useState<AIAnalysis | null>(null);
+  const [aiMode, setAiMode] = useState<string>("");
 
   const issues = useMemo(() => sampleIssues.filter((item) => filter === "all" || (filter === "door" ? item.rule === "DOOR_WIDTH" : item.rule === "FIRE_RATING")), [filter]);
 
-  function runCheck() {
+  async function runCheck() {
     setChecking(true);
     setChecked(false);
     setActive(null);
-    window.setTimeout(() => { setChecking(false); setChecked(true); }, 850);
+    setAnalysis(null);
+    await new Promise((resolve) => window.setTimeout(resolve, 650));
+    setChecked(true);
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ issues: sampleIssues }),
+      });
+      const data = await response.json() as { analysis?: AIAnalysis; mode?: string };
+      if (data.analysis) setAnalysis(data.analysis);
+      setAiMode(data.mode ?? "");
+    } finally {
+      setChecking(false);
+    }
   }
 
   return (
@@ -94,13 +116,14 @@ export default function Home() {
           <div className="panel-head"><span>02</span><div><p>RESULTS</p><h2>检查结果</h2></div></div>
           {!checked ? <div className="empty-result"><div>✓</div><strong>等待检查</strong><p>结果将按构件定位并给出可执行建议。</p></div> : <>
             <div className="score-row"><div className="score"><strong>72</strong><span>/ 100<br />需整改</span></div><div className="score-meta"><p><b>39</b> 通过</p><p><b>3</b> 问题</p></div></div>
+            <div className="ai-brief"><div><span>AI REVIEW</span><em>{analysis ? (aiMode === "llm" ? "模型已完成" : "本地兜底") : "分析中"}</em></div><p>{analysis?.summary ?? "正在将结构化检查结果发送至分析层…"}</p>{analysis && <small>{analysis.priority}</small>}</div>
             <div className="filters"><button className={filter === "all" ? "on" : ""} onClick={() => setFilter("all")}>全部 3</button><button className={filter === "door" ? "on" : ""} onClick={() => setFilter("door")}>净宽 1</button><button className={filter === "fire" ? "on" : ""} onClick={() => setFilter("fire")}>属性 2</button></div>
             <div className="issue-list">{issues.map((issue) => <button key={issue.id} className={`issue ${active?.id === issue.id ? "current" : ""}`} onClick={() => setActive(issue)}><span className="severity">{issue.penalty}</span><div><strong>{issue.title}</strong><p>{issue.element}</p><small>{issue.location}</small></div><b>→</b></button>)}</div>
           </>}
         </aside>
       </section>
 
-      {active && <div className="detail-bar"><button className="close" onClick={() => setActive(null)}>×</button><div><span>当前问题</span><strong>{active.id} · {active.title}</strong></div><dl><div><dt>实际值</dt><dd>{active.actual}</dd></div><div><dt>规则要求</dt><dd>{active.required}</dd></div><div><dt>扣分</dt><dd>−{active.penalty}</dd></div></dl><p><span>AI 建议</span>{active.rule === "DOOR_WIDTH" ? "建议将门洞净宽增加至 900 mm 以上，并复核开启后的实际通行宽度。" : "请向 Pset_DoorCommon.FireRating 写入有效防火时长，并与防火分区要求复核。"}</p></div>}
+      {active && <div className="detail-bar"><button className="close" onClick={() => setActive(null)}>×</button><div><span>当前问题</span><strong>{active.id} · {active.title}</strong></div><dl><div><dt>实际值</dt><dd>{active.actual}</dd></div><div><dt>规则要求</dt><dd>{active.required}</dd></div><div><dt>扣分</dt><dd>−{active.penalty}</dd></div></dl><p><span>AI 建议</span>{analysis?.recommendations[active.id] ?? "正在生成针对该构件的整改建议…"}</p></div>}
 
       <footer><span>PROTOTYPE 0.1</span><p>确定性规则负责判定，AI 只负责解释。</p><p>Powered by openBIM · IFC4</p></footer>
     </main>
