@@ -67,6 +67,8 @@ export default function Home() {
     setAnalysis(null);
     await new Promise((resolve) => window.setTimeout(resolve, 650));
     setChecked(true);
+    await viewerRef.current?.highlightIssues(effectiveIssues);
+    setModelStatus(effectiveIssues.length ? `已在模型中高亮 ${new Set(effectiveIssues.map((issue) => `${issue.modelId}:${issue.localId}`)).size} 个违规构件` : "检查通过，未发现违规构件");
     try {
       if (!effectiveIssues.length) {
         setAnalysis({ summary: "当前两条规则未发现异常。", priority: "建议继续扩展其他规则并进行专业复核。", recommendations: {} });

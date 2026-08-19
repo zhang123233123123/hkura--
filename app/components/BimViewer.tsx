@@ -10,6 +10,7 @@ export type BimViewerHandle = {
   reset: () => Promise<void>;
   zoomIn: () => Promise<void>;
   zoomOut: () => Promise<void>;
+  highlightIssues: (issues: Issue[]) => Promise<void>;
   focusIssue: (issue: Issue) => Promise<void>;
 };
 
@@ -167,9 +168,19 @@ function modelMeshes(model: ViewerModel) {
   return meshes;
 }
 
+function issueItems(issues: Issue[]) {
+  const items: Record<string, Set<number>> = {};
+  for (const issue of issues) {
+    if (!issue.modelId || issue.localId === undefined) continue;
+    (items[issue.modelId] ??= new Set()).add(issue.localId);
+  }
+  return items;
+}
+
 export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer({ file, mode, onStatus, onParsed }, ref) {
   const hostRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<ViewerRuntime | null>(null);
+  const highlightedIssuesRef = useRef<Issue[]>([]);
   const [ready, setReady] = useState(false);
 
   async function applyMode(nextMode: ViewMode) {
@@ -216,13 +227,27 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer({
       if (mode === "2d") await controls.zoom(-0.25, true);
       else await controls.dolly(-2, true);
     },
+    highlightIssues: async (issues) => {
+      const runtime = runtimeRef.current;
+      if (!runtime?.model) return;
+      highlightedIssuesRef.current = issues;
+      await runtime.fragments.resetHighlight();
+      const items = issueItems(issues);
+      if (!Object.keys(items).length) return;
+      const THREE = await import("three");
+      await runtime.fragments.highlight({ color: new THREE.Color("#ef5a3c"), renderedFaces: 1, opacity: 0.88, transparent: true, preserveOriginalMaterial: true }, items);
+      runtime.fragments.core.update(true);
+    },
     focusIssue: async (issue) => {
       const runtime = runtimeRef.current;
       if (!runtime?.model || issue.localId === undefined || !issue.modelId) return;
       const items = { [issue.modelId]: new Set([issue.localId]) };
       await runtime.fragments.resetHighlight();
       const THREE = await import("three");
-      await runtime.fragments.highlight({ color: new THREE.Color("#e5533d"), renderedFaces: 1, opacity: 1, transparent: false, preserveOriginalMaterial: true }, items);
+      const allItems = issueItems(highlightedIssuesRef.current);
+      if (Object.keys(allItems).length) await runtime.fragments.highlight({ color: new THREE.Color("#ef5a3c"), renderedFaces: 1, opacity: 0.55, transparent: true, preserveOriginalMaterial: true }, allItems);
+      await runtime.fragments.highlight({ color: new THREE.Color("#c9e642"), renderedFaces: 1, opacity: 1, transparent: false, preserveOriginalMaterial: true }, items);
+      runtime.fragments.core.update(true);
       const boxes = await runtime.fragments.getBBoxes(items);
       const box = boxes[0];
       if (box && !box.isEmpty()) {
@@ -295,6 +320,8 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer({
       if (!file || !runtime) return;
       try {
         onStatus(`正在解析 ${file.name}…`);
+        highlightedIssuesRef.current = [];
+        await runtime.fragments.resetHighlight();
         if (runtime.model) runtime.scene.remove(runtime.model.object);
         const bytes = new Uint8Array(await file.arrayBuffer());
         const rawModelId = await runtime.loader.readIfcFile(bytes);
