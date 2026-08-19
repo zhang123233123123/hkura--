@@ -202,10 +202,9 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer({
       if (!hostRef.current || runtimeRef.current) return;
       try {
         onStatus("正在初始化 openBIM 查看器…");
-        const [OBC, THREE, worker] = await Promise.all([
+        const [OBC, THREE] = await Promise.all([
           import("@thatopen/components"),
           import("three"),
-          import("@thatopen/fragments/worker?url"),
         ]);
         if (cancelled || !hostRef.current) return;
         const components = new OBC.Components();
@@ -224,7 +223,7 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer({
         components.get(OBC.Grids).create(world as never);
 
         const fragments = components.get(OBC.FragmentsManager);
-        fragments.init(worker.default);
+        fragments.init("/workers/fragments-worker.mjs");
         world.camera.controls!.addEventListener("update", () => fragments.core.update());
 
         const loader = components.get(OBC.IfcLoader);
