@@ -117,13 +117,13 @@ export default function Home() {
         </aside>
 
         <div className="model-panel">
-          <div className="viewer-switch"><button className={viewMode === "3d" ? "on" : ""} onClick={() => setViewMode("3d")}>3D 模型</button><button className={viewMode === "2d" ? "on" : ""} onClick={() => setViewMode("2d")}>2D 平面</button><select aria-label="选择楼层" disabled={!parsedModel?.floors.length}>{(parsedModel?.floors.length ? parsedModel.floors : ["L1"]).map((floor) => <option key={floor}>{floor}</option>)}</select></div>
+          <div className="viewer-switch"><button className={viewMode === "3d" ? "on" : ""} onClick={() => setViewMode("3d")}>3D 模型</button><button className={viewMode === "2d" ? "on" : ""} onClick={() => setViewMode("2d")}>2D 结构平面</button><select aria-label="选择楼层" disabled={!parsedModel?.floors.length}>{(parsedModel?.floors.length ? parsedModel.floors : ["L1"]).map((floor) => <option key={floor}>{floor}</option>)}</select></div>
           <div className="canvas-tools">
             <button title="放大" aria-label="放大模型" onClick={() => void viewerRef.current?.zoomIn()}>+</button>
             <button title="缩小" aria-label="缩小模型" onClick={() => void viewerRef.current?.zoomOut()}>−</button>
             <button title="重置视图" aria-label="重置模型视图" onClick={() => void viewerRef.current?.reset()}>⌖</button>
           </div>
-          <div className="view-label"><span>{viewMode.toUpperCase()}</span> {viewMode === "3d" ? "透视模型视图" : "正交楼层视图"}</div>
+          <div className="view-label"><span>{viewMode.toUpperCase()}</span> {viewMode === "3d" ? "透视模型视图" : "IFC 水平剖切 · 结构平面"}</div>
           <BimViewer ref={viewerRef} file={modelFile} mode={viewMode} onStatus={setModelStatus} onParsed={setParsedModel} />
           {!modelFile && <div className="demo-building" aria-label="演示建筑模型"><div className="demo-core" /><div className="demo-slab slab-1" /><div className="demo-slab slab-2" /><div className="demo-slab slab-3" /><div className="demo-slab slab-4" /></div>}
           {!modelFile && !checking && <button className="canvas-empty upload-empty" onClick={() => inputRef.current?.click()}><span>◎</span><strong>上传 IFC 查看真实模型</strong><p>当前展示为交互演示模型</p></button>}

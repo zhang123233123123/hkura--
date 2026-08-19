@@ -15,6 +15,13 @@ export type BimViewerHandle = {
 
 type ViewerRuntime = {
   components: { dispose: () => void };
+  world: unknown;
+  clipper: {
+    enabled: boolean;
+    visible: boolean;
+    deleteAll: () => void;
+    createFromNormalAndCoplanarPoint: (world: unknown, normal: import("three").Vector3, point: import("three").Vector3) => string;
+  };
   camera: {
     set: (mode: string) => void;
     projection: { set: (mode: "Orthographic" | "Perspective") => Promise<void> };
@@ -169,6 +176,7 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer({
     const runtime = runtimeRef.current;
     if (!runtime) return;
     if (nextMode === "2d") {
+      runtime.clipper.deleteAll();
       await runtime.camera.projection.set("Orthographic");
       runtime.camera.set("Plan");
       if (runtime.model) {
@@ -176,9 +184,12 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer({
         const box = new THREE.Box3().setFromObject(runtime.model.object);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
-        await runtime.camera.controls.setLookAt(center.x, center.y + Math.max(size.length(), 10), center.z, center.x, center.y, center.z, true);
+        const cutHeight = box.min.y + Math.min(Math.max(size.y * 0.35, 1.2), size.y * 0.75);
+        runtime.clipper.createFromNormalAndCoplanarPoint(runtime.world, new THREE.Vector3(0, -1, 0), new THREE.Vector3(center.x, cutHeight, center.z));
+        await runtime.camera.controls.setLookAt(center.x, center.y + Math.max(size.length(), 10), center.z, center.x, cutHeight, center.z, true);
       }
     } else {
+      runtime.clipper.deleteAll();
       runtime.camera.set("Orbit");
       await runtime.camera.projection.set("Perspective");
       if (runtime.model) await runtime.camera.fit(modelMeshes(runtime.model), 1.35);
@@ -248,6 +259,10 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer({
         world.camera = new OBC.OrthoPerspectiveCamera(components);
         components.init();
         components.get(OBC.Grids).create(world as never);
+        const clipper = components.get(OBC.Clipper);
+        clipper.setup();
+        clipper.enabled = true;
+        clipper.visible = false;
 
         const fragments = components.get(OBC.FragmentsManager);
         fragments.init("/workers/fragments-worker.mjs");
@@ -261,7 +276,7 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer({
           IFCRELDEFINESBYPROPERTIES: 4186316022,
           IFCRELCONTAINEDINSPATIALSTRUCTURE: 3242617779,
         };
-        runtimeRef.current = { components, camera: world.camera, scene: world.scene.three, fragments, loader, schema } as unknown as ViewerRuntime;
+        runtimeRef.current = { components, world, clipper, camera: world.camera, scene: world.scene.three, fragments, loader, schema } as unknown as ViewerRuntime;
         setReady(true);
         onStatus("查看器已就绪，请上传 IFC 模型");
       } catch (error) {
