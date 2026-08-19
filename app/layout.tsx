@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RuleLens BIM — IFC 合规评分",
+  title: "IFC 合规检查",
   description: "基于开源 openBIM 技术栈的轻量建筑模型合规检查器。",
   icons: {
     icon: "/favicon.svg",

@@ -88,12 +88,6 @@ export default function Home() {
 
   return (
     <main>
-      <header className="topbar">
-        <a className="brand" href="#" aria-label="RuleLens 首页"><span className="mark">R</span><span>RuleLens <b>BIM</b></span></a>
-        <div className="project"><span className="status-dot" /> {fileName}<span className="saved">本地分析 · 数据不上传</span></div>
-        <button className="ask-model" onClick={() => setChatOpen(true)}><span>✶</span> 问模型</button>
-      </header>
-
       <section className="intro">
         <div>
           <p className="eyebrow">IFC QUALITY GATE / 01</p>
