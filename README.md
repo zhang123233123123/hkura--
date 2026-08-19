@@ -10,6 +10,21 @@
 - DeepSeek 检查结果分析和多轮“问模型”对话
 - 无网络或模型 API 异常时的本地兜底
 
+## 处理链路
+
+1. 浏览器本地使用 WebIFC 读取 IFC 实体、空间结构和属性关系。
+2. 规则引擎检查 `IfcDoor.OverallWidth` 和 `Pset_DoorCommon.FireRating`。
+3. 检查问题通过 GUID/local ID 映射回 Fragments 模型，用于高亮和相机定位。
+4. 确定性结果发送给 DeepSeek 进行总结与对话，模型不能修改评分。
+
+## IFC 快速回归
+
+```bash
+npm run smoke:ifc -- /path/to/model.ifc
+```
+
+该命令会验证 IFC 总实体数、门、楼层、属性关系和空间容器关系是否可正常读取。
+
 ## 本地启动
 
 ```bash

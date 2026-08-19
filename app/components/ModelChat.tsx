@@ -4,16 +4,18 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import type { Issue } from "../model-types";
 
 type Message = { role: "user" | "assistant"; content: string };
-type Props = { open: boolean; onClose: () => void; fileName: string; checked: boolean; issues: Issue[]; modelStatus: string };
+type Props = { open: boolean; onClose: () => void; fileName: string; checked: boolean; issues: Issue[]; score: number; modelStatus: string };
 
 const suggestions = ["哪些问题最优先？", "门宽检查结果是什么？", "总结防火属性问题"];
 
-export function ModelChat({ open, onClose, fileName, checked, issues, modelStatus }: Props) {
+export function ModelChat({ open, onClose, fileName, checked, issues, score, modelStatus }: Props) {
   const [messages, setMessages] = useState<Message[]>([{ role: "assistant", content: "你好，我可以根据当前模型的结构化检查结果回答问题。" }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
-  useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), [messages, loading]);
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
 
   async function ask(text: string) {
     const question = text.trim();
@@ -23,7 +25,7 @@ export function ModelChat({ open, onClose, fileName, checked, issues, modelStatu
     try {
       const response = await fetch("/api/chat", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next, context: { fileName, score: checked ? 72 : undefined, issues: checked ? issues : [], modelStatus } }),
+        body: JSON.stringify({ messages: next, context: { fileName, score: checked ? score : undefined, issues: checked ? issues : [], modelStatus } }),
       });
       const data = await response.json() as { reply?: string };
       setMessages((current) => [...current, { role: "assistant", content: data.reply ?? "暂时无法回答。" }]);
