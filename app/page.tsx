@@ -1,19 +1,9 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-
-type Issue = {
-  id: string;
-  rule: "DOOR_WIDTH" | "FIRE_RATING";
-  title: string;
-  element: string;
-  location: string;
-  actual: string;
-  required: string;
-  penalty: number;
-  x: number;
-  y: number;
-};
+import { BimViewer, type BimViewerHandle, type ViewMode } from "./components/BimViewer";
+import { ModelChat } from "./components/ModelChat";
+import type { Issue } from "./model-types";
 
 type AIAnalysis = {
   summary: string;
@@ -29,7 +19,12 @@ const sampleIssues: Issue[] = [
 
 export default function Home() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [fileName, setFileName] = useState("HKU_Office_L2.ifc");
+  const viewerRef = useRef<BimViewerHandle>(null);
+  const [fileName, setFileName] = useState("演示模型 · HKU_Office_L2.ifc");
+  const [modelFile, setModelFile] = useState<File | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("3d");
+  const [modelStatus, setModelStatus] = useState("查看器正在准备…");
+  const [chatOpen, setChatOpen] = useState(false);
   const [checked, setChecked] = useState(false);
   const [checking, setChecking] = useState(false);
   const [active, setActive] = useState<Issue | null>(null);
@@ -65,7 +60,7 @@ export default function Home() {
       <header className="topbar">
         <a className="brand" href="#" aria-label="RuleLens 首页"><span className="mark">R</span><span>RuleLens <b>BIM</b></span></a>
         <div className="project"><span className="status-dot" /> {fileName}<span className="saved">本地分析 · 数据不上传</span></div>
-        <span className="prototype-tag">AI + openBIM · LOCAL PROTOTYPE</span>
+        <button className="ask-model" onClick={() => setChatOpen(true)}><span>✶</span> 问模型</button>
       </header>
 
       <section className="intro">
@@ -77,9 +72,9 @@ export default function Home() {
         </div>
         <div className="upload-card">
           <div className="file-icon">IFC</div>
-          <div><strong>{fileName}</strong><span>IFC4 · 4.8 MB · 1,284 构件</span></div>
+          <div><strong>{fileName}</strong><span>{modelFile ? `${(modelFile.size / 1024 / 1024).toFixed(1)} MB · 本地文件` : "IFC4 · 内置演示数据"}</span></div>
           <button className="replace" onClick={() => inputRef.current?.click()}>替换模型</button>
-          <input ref={inputRef} hidden type="file" accept=".ifc,.json" onChange={(e) => e.target.files?.[0] && setFileName(e.target.files[0].name)} />
+          <input ref={inputRef} hidden type="file" accept=".ifc" onChange={(e) => { const next = e.target.files?.[0]; if (next) { setFileName(next.name); setModelFile(next); } }} />
         </div>
       </section>
 
@@ -97,18 +92,15 @@ export default function Home() {
         </aside>
 
         <div className="model-panel">
-          <div className="canvas-tools"><button title="缩放">+</button><button title="缩放">−</button><button title="重置视图">⌖</button></div>
-          <div className="view-label"><span>L1</span> 平面定位视图</div>
-          <div className="floorplan" aria-label="建筑平面模型示意图">
-            <div className="room room-a"><span>MEETING 01</span></div>
-            <div className="room room-b"><span>OPEN OFFICE</span></div>
-            <div className="room room-c"><span>CORE</span></div>
-            <div className="room room-d"><span>MEETING 02</span></div>
-            <div className="room room-e"><span>LOBBY</span></div>
-            {checked && sampleIssues.map((issue) => <button key={issue.id} onClick={() => setActive(issue)} className={`pin ${active?.id === issue.id ? "selected" : ""}`} style={{ left: `${issue.x}%`, top: `${issue.y}%` }}><span>!</span><em>{issue.id}</em></button>)}
-          </div>
-          {!checked && !checking && <div className="canvas-empty"><span>◎</span><strong>模型已就绪</strong><p>选择规则后运行检查</p></div>}
+          <div className="viewer-switch"><button className={viewMode === "3d" ? "on" : ""} onClick={() => setViewMode("3d")}>3D 模型</button><button className={viewMode === "2d" ? "on" : ""} onClick={() => setViewMode("2d")}>2D 平面</button><select aria-label="选择楼层" disabled={!modelFile}><option>L1</option></select></div>
+          <div className="canvas-tools"><button title="重置视图" onClick={() => void viewerRef.current?.reset()}>⌖</button></div>
+          <div className="view-label"><span>{viewMode.toUpperCase()}</span> {viewMode === "3d" ? "透视模型视图" : "正交楼层视图"}</div>
+          <BimViewer ref={viewerRef} file={modelFile} mode={viewMode} onStatus={setModelStatus} />
+          {!modelFile && <div className="demo-building" aria-label="演示建筑模型"><div className="demo-core" /><div className="demo-slab slab-1" /><div className="demo-slab slab-2" /><div className="demo-slab slab-3" /><div className="demo-slab slab-4" /></div>}
+          {!modelFile && !checking && <button className="canvas-empty upload-empty" onClick={() => inputRef.current?.click()}><span>◎</span><strong>上传 IFC 查看真实模型</strong><p>当前展示为交互演示模型</p></button>}
+          {checked && viewMode === "2d" && sampleIssues.map((issue) => <button key={issue.id} onClick={() => setActive(issue)} className={`pin viewer-pin ${active?.id === issue.id ? "selected" : ""}`} style={{ left: `${issue.x}%`, top: `${issue.y}%` }}><span>!</span><em>{issue.id}</em></button>)}
           {checking && <div className="scanline"><span /></div>}
+          <div className="viewer-status"><i className={modelStatus.includes("失败") ? "error" : ""} />{modelStatus}</div>
           <div className="legend"><span><i className="pass-dot" /> 通过 39</span><span><i className="fail-dot" /> 问题 3</span><span><i className="muted-dot" /> 未检查 1,242</span></div>
         </div>
 
@@ -124,6 +116,10 @@ export default function Home() {
       </section>
 
       {active && <div className="detail-bar"><button className="close" onClick={() => setActive(null)}>×</button><div><span>当前问题</span><strong>{active.id} · {active.title}</strong></div><dl><div><dt>实际值</dt><dd>{active.actual}</dd></div><div><dt>规则要求</dt><dd>{active.required}</dd></div><div><dt>扣分</dt><dd>−{active.penalty}</dd></div></dl><p><span>AI 建议</span>{analysis?.recommendations[active.id] ?? "正在生成针对该构件的整改建议…"}</p></div>}
+
+      <button className="chat-fab" onClick={() => setChatOpen(true)} aria-label="打开模型对话"><span>✶</span><b>问模型</b></button>
+      <ModelChat open={chatOpen} onClose={() => setChatOpen(false)} fileName={fileName} checked={checked} issues={sampleIssues} modelStatus={modelStatus} />
+      {chatOpen && <button className="chat-backdrop" onClick={() => setChatOpen(false)} aria-label="关闭对话遮罩" />}
 
       <footer><span>PROTOTYPE 0.1</span><p>确定性规则负责判定，AI 只负责解释。</p><p>Powered by openBIM · IFC4</p></footer>
     </main>

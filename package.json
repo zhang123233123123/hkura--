@@ -14,9 +14,13 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@thatopen/components": "^3.4.8",
+    "@thatopen/components-front": "^3.4.4",
+    "@thatopen/fragments": "^3.4.7",
     "drizzle-orm": "0.45.2",
     "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react-dom": "19.2.6",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
