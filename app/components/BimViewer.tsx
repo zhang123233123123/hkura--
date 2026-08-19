@@ -8,6 +8,8 @@ export type ViewMode = "2d" | "3d";
 export type BimViewerHandle = {
   setMode: (mode: ViewMode) => Promise<void>;
   reset: () => Promise<void>;
+  zoomIn: () => Promise<void>;
+  zoomOut: () => Promise<void>;
   focusIssue: (issue: Issue) => Promise<void>;
 };
 
@@ -16,7 +18,12 @@ type ViewerRuntime = {
   camera: {
     set: (mode: string) => void;
     projection: { set: (mode: "Orthographic" | "Perspective") => Promise<void> };
-    controls: { setLookAt: (px: number, py: number, pz: number, tx: number, ty: number, tz: number, smooth?: boolean) => Promise<void>; addEventListener: (name: string, callback: () => void) => void };
+    controls: {
+      setLookAt: (px: number, py: number, pz: number, tx: number, ty: number, tz: number, smooth?: boolean) => Promise<void>;
+      addEventListener: (name: string, callback: () => void) => void;
+      dolly: (distance: number, smooth?: boolean) => Promise<void>;
+      zoom: (step: number, smooth?: boolean) => Promise<void>;
+    };
     three: import("three").Camera;
     fit: (meshes?: Iterable<import("three").Mesh>, offset?: number) => Promise<void>;
   };
@@ -145,6 +152,14 @@ function parseIfcCompliance(api: IfcApiLike, rawModelId: number, schema: Record<
   return { issues, doorsChecked: doorIds.length, passedChecks, elementCount: api.GetAllLines(rawModelId).size(), floors };
 }
 
+function modelMeshes(model: ViewerModel) {
+  const meshes: import("three").Mesh[] = [];
+  model.object.traverse((object) => {
+    if ((object as import("three").Mesh).isMesh) meshes.push(object as import("three").Mesh);
+  });
+  return meshes;
+}
+
 export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer({ file, mode, onStatus, onParsed }, ref) {
   const hostRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<ViewerRuntime | null>(null);
@@ -166,7 +181,7 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer({
     } else {
       runtime.camera.set("Orbit");
       await runtime.camera.projection.set("Perspective");
-      if (runtime.model) await runtime.camera.fit(undefined, 1.35);
+      if (runtime.model) await runtime.camera.fit(modelMeshes(runtime.model), 1.35);
     }
     runtime.model?.useCamera(runtime.camera.three);
     runtime.fragments.core.update(true);
@@ -176,7 +191,19 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer({
     setMode: applyMode,
     reset: async () => {
       const runtime = runtimeRef.current;
-      if (runtime?.model) await runtime.camera.fit(undefined, 1.35);
+      if (runtime?.model) await runtime.camera.fit(modelMeshes(runtime.model), 1.35);
+    },
+    zoomIn: async () => {
+      const controls = runtimeRef.current?.camera.controls;
+      if (!controls) return;
+      if (mode === "2d") await controls.zoom(0.25, true);
+      else await controls.dolly(2, true);
+    },
+    zoomOut: async () => {
+      const controls = runtimeRef.current?.camera.controls;
+      if (!controls) return;
+      if (mode === "2d") await controls.zoom(-0.25, true);
+      else await controls.dolly(-2, true);
     },
     focusIssue: async (issue) => {
       const runtime = runtimeRef.current;
@@ -263,7 +290,7 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer({
         runtime.scene.add(model.object);
         model.useCamera(runtime.camera.three);
         runtime.fragments.core.update(true);
-        await runtime.camera.fit(undefined, 1.35);
+        await runtime.camera.fit(modelMeshes(model), 1.35);
         await applyMode(mode);
         onStatus(`${file.name} 已加载，正在执行门构件检查…`);
         const guids = [...new Set(parsed.issues.map((issue) => issue.guid).filter((guid): guid is string => Boolean(guid)))];
